@@ -1,0 +1,12 @@
+snappy-demo2,136465295220870407,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8010D\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295221720233,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295222910109,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295223690258,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9020E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295225080725,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295225700445,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295227220307,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295227800752,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9010D\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295228500776,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295229940730,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9010E\"}",2015-03-24 22:38:42+0000
+snappy-demo2,136465295230640370,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F8000E\"}",2015-03-24 22:38:43+0000
+snappy-demo2,136465295232090844,xgatt/value,"{\"device\":\"B4:99:4C:64:23:F7\",\"handle\":48,\"valueHex\":\"F9010E\"}",2015-03-24 22:38:43+0000
