@@ -10,7 +10,9 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming" % "1.3.1" % "provided",
   "org.apache.spark" %% "spark-streaming-kafka" % "1.3.1",
   "org.scalanlp" %% "breeze" % "0.11.1" % "provided",
-  "net.databinder.dispatch" %% "dispatch-core" % "0.11.2"	
+  "net.databinder.dispatch" %% "dispatch-core" % "0.11.2",
+  "org.json4s" %% "json4s-native" % "3.2.11",
+  "org.json4s" %% "json4s-jackson" % "3.2.11"
 )
 
 assemblyJarName in assembly := "fanmonitor.jar"

@@ -16,7 +16,7 @@ object FanMonitor extends App {
         |  <brokers> is a list of one or more Kafka brokers
         |  <seconds> monitoring "window" length in seconds
         |  <url> service URL to track monitor state changes; monitor will send POST to this address with state parameter set to 1 (vibration) or 0 (no vibration)
-        |  <threshold> vibration threshold (oscilation variance)
+        |  <threshold> vibration threshold (oscilation variance), defaults to 0.2
         |
         """.stripMargin)
       System.exit(1)
@@ -24,6 +24,7 @@ object FanMonitor extends App {
 
     val brokers = args(0)
     val windowSize = args(1).toInt
+
     val service = url(args(2))
     val threshold = Try(args(3).toDouble).getOrElse(0.2D)
 
@@ -57,7 +58,7 @@ object FanMonitor extends App {
       rdd =>
         val variance = breeze.stats.meanAndVariance(rdd.toArray).variance
 
-        val newState = if (variance > 0.11)
+        val newState = if (variance > threshold)
           true
         else
           false
@@ -65,12 +66,12 @@ object FanMonitor extends App {
         if (state != newState) {
           state = newState
           println(s"State changed! Now it is $state")
-          val strState = if(state) "1" else "0"
+          val strState = if(state) "0" else "1"
 
-          Http(service << Map("state" -> strState))
+          Http(service << strState <:< Map("Content-Type" -> "text/plain"))
         }
 
-        println(s"variance: $variance")
+        println(s"variance: $variance / $threshold")
     }
 
     ssc.start()
