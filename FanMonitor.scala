@@ -7,12 +7,20 @@ import org.apache.spark.streaming.kafka._
 import org.apache.spark.SparkConf
 import scala.util.Try
 
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+
 import dispatch._, Defaults._
 
+case class NotificationParams(address: String, characteristic: String, `type`: String, value: String)
+
 object FanMonitor extends App {
-    if (args.length < 3) {
+
+    implicit val formats = DefaultFormats
+
+    if (args.length < 5) {
       System.err.println(s"""
-        |Usage: FanMonitor <brokers> <seconds> <url> [<threshold>]
+        |Usage: FanMonitor <brokers> <seconds> <url> <threshold> <characteristic>
         |  <brokers> is a list of one or more Kafka brokers
         |  <seconds> monitoring "window" length in seconds
         |  <url> service URL to track monitor state changes; monitor will send POST to this address with state parameter set to 1 (vibration) or 0 (no vibration)
@@ -27,6 +35,7 @@ object FanMonitor extends App {
 
     val service = url(args(2))
     val threshold = Try(args(3).toDouble).getOrElse(0.2D)
+    val characteristic = args(4)
 
     var state = false
 
@@ -37,42 +46,58 @@ object FanMonitor extends App {
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, Set("device_notification"))
 
-    val measurements = messages.filter(msg => msg._2.contains("""\"handle\":45""")).map {
-      t =>
-        val elements = t._2.split(",")
+    /* Message sample:
+       {"id":2078486905,"notification":"Notification","deviceGuid":"903D08A6-05D3-4571-9D1D-C6A1B8AC21EC",
+        "timestamp":"2015-04-27T16:22:35.174235",
+        "parameters":{"address":"e4c95cc8bbc1","characteristic":"299d64102f6111e281c10800200c9a66",
+                      "type":"Indication","value":"8d501700815017004800000000000000"}
+        "deviceId":"903D08A6-05D3-4571-9D1D-C6A1B8AC21EC"}
+     */
 
-        val h = (":([0-9]*)".r findFirstMatchIn elements(5)).flatMap{ m => Some(java.lang.Integer.parseInt(m.group(1))) }.getOrElse(0)
-        val v = (":[^\"]\"([0-9A-F]*)".r findFirstMatchIn elements(6)).flatMap{ m => Some(java.lang.Integer.parseInt(m.group(1), 16)) }.getOrElse(0)
+    val measurements = messages
+      .map {
+        msg =>
+          val jsonMsg = parse(msg._2)
+          val jsonParams = parse((jsonMsg \\ "parameters").extract[String])
 
-        val x = (v & 0xFF).toByte / 64.0
-        val y = ((v >> 8) & 0xFF).toByte / 64.0
-        val z = (v >> 16).toByte * -1.0 / 64.0
+          jsonParams.extract[NotificationParams]
+      }
+      .filter(_.characteristic == characteristic)
+      .map {
+        p: NotificationParams =>
+          val value = java.lang.Long.parseLong(p.value, 16)
+          val x = (value & 0xFF).toByte / 64.0
+          val y = ((value >> 8) & 0xFF).toByte / 64.0
+          val z = (value >> 16).toByte * -1.0 / 64.0
 
-        val dist = scala.math.sqrt(x*x + y*y + z*z)
+          val dist = scala.math.sqrt(x*x + y*y + z*z)
 
-        require(h == 45, "Unexpected handle on sensor data map")
+          p.address -> dist
+      }
+      .groupByKey()
+      .map {
+        case (addr, v) =>
+           addr -> breeze.stats.meanAndVariance(v.toArray).variance
+      }
+      .map {
+        case (address, variance) =>
 
-        dist
-    }
-    .foreachRDD {
-      rdd =>
-        val variance = breeze.stats.meanAndVariance(rdd.toArray).variance
+          val newState = if (variance > threshold)
+            true
+          else
+            false
 
-        val newState = if (variance > threshold)
-          true
-        else
-          false
+          if (state != newState) {
+            state = newState
+            println(s"State changed! Now it is $state")
+            val strState = if(state) "0" else "1"
 
-        if (state != newState) {
-          state = newState
-          println(s"State changed! Now it is $state")
-          val strState = if(state) "0" else "1"
+            // TODO: need to send device address also in post paramters
+            Http(service << strState <:< Map("Content-Type" -> "text/plain"))
+          }
 
-          Http(service << strState <:< Map("Content-Type" -> "text/plain"))
-        }
-
-        println(s"variance: $variance / $threshold")
-    }
+          println(s"Fan vibraion variance: $variance / $threshold")
+       }
 
     ssc.start()
     ssc.awaitTermination()
