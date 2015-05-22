@@ -1,0 +1,1 @@
+..\spark-1.3.0-bin-hadoop1\bin\spark-submit.cmd --master "local[*]" --jars target/scala-2.10/FanMonitor-assembly-0.1-SNAPSHOT-deps.jar --class com.devicehive.FanMonitor target/scala-2.10/fanmonitor_2.10-0.1-SNAPSHOT.jar 52.0.200.198:2181 5 http://localhost:8080/rest 0.11
