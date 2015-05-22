@@ -7,6 +7,7 @@ import scala.util.Try
 
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import org.json4s.JsonDSL._
 
 import dispatch._, Defaults._
 
@@ -35,10 +36,10 @@ object FanMonitor extends App {
     val zkQuorum = args(0)
     val windowSize = args(1).toInt
 
-    val service = url(args(2))
+    val dhRest = args(2)
     val threshold = Try(args(3).toDouble).getOrElse(0.2D)
 
-    var state = false
+    val authToken = "Bearer 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
 
     val sc = new SparkConf().setAppName("FanMonitor")
     val ssc =  new StreamingContext(sc, Seconds(windowSize))
@@ -69,6 +70,16 @@ object FanMonitor extends App {
      * GREEN 0f0d030000ff006400000000000067ffff
      */
 
+     def dhCommand(deviceID: String, command: String, params: JsonAST.JObject) = {
+       val cmdUrl = url(s"$dhRest/device/$deviceID/command")
+         .setContentType("application/json", "UTF-8")
+         .setHeader("Authorization", authToken)
+
+       val cmdJson = ("timestamp" -> new java.util.Date().getTime) ~ ("command" -> command) ~ ("parameters" -> params)
+
+       cmdUrl.setBody(compact(render(cmdJson))) OK as.String
+     }
+
      def lampValue(vibration: Boolean) =
        if (vibration)
          "0f0d0300ff00006400000000000067ffff"
@@ -82,7 +93,9 @@ object FanMonitor extends App {
 
           val initialized = if (!state.initialized) {
             println("!!! device initialized !!!")
-            println(s"""DH: ${service.toString}/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"type":"DELIGHT", "mac":"$mac"},"command":"init" }""")
+            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"type":"DELIGHT", "mac":"$mac"},"command":"init" }""")
+            //dhCommand(deviceID, "init", ("mac" -> mac) ~ ("type" -> "DELIGHT"))
+
             true
           } else
             state.initialized
@@ -91,7 +104,8 @@ object FanMonitor extends App {
 
           if (state.vibration != vibration) {
             println("!!! vibration state changed !!!")
-            println(s"""DH: ${service.toString}/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"mac": "$mac", "uuid":"fff3", "value": "${lampValue(vibration)}"}, "command": "gatt/write" }""")
+            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"mac": "$mac", "uuid":"fff3", "value": "${lampValue(vibration)}"}, "command": "gatt/write" }""")
+            //dhCommand(deviceID, "gatt/write", ("mac" -> mac) ~ ("uuid" -> "fff3") ~ ("value" -> lampValue(vibration)))
           }
 
           (deviceID, mac) -> FanState(initialized, vibration)
