@@ -54,7 +54,7 @@ object FanMonitor extends App {
        "deviceGuid":"e50d6085-2aba-48e9-b1c3-73c673e414be",
        "timestamp":"2015-05-21T15:10:15.050884",
        "parameters":
-           {"jsonString":"{\"mac\":\"bc6a29abd973\",\"uuid\":\"F000AA1104514000b000000000000000\",\"value\":\"ce3ce6\"}"}}
+           {"jsonString":"{\"mac\":\"bc6a29abd973\",\"uuid\":\"f000aa1104514000b000000000000000\",\"value\":\"0.00005292811793254699\"}"}}
      */
 
     /*
@@ -71,13 +71,14 @@ object FanMonitor extends App {
      */
 
      def dhCommand(deviceID: String, command: String, params: JsonAST.JObject) = {
-       val cmdUrl = url(s"$dhRest/device/$deviceID/command")
-         .setContentType("application/json", "UTF-8")
-         .setHeader("Authorization", authToken)
-
        val cmdJson = ("timestamp" -> new java.util.Date().getTime) ~ ("command" -> command) ~ ("parameters" -> params)
 
-       cmdUrl.setBody(compact(render(cmdJson))) OK as.String
+       val cmdUrl = url(s"$dhRest/device/$deviceID/command").POST
+         .setContentType("application/json", "UTF-8")
+         .setHeader("Authorization", authToken)
+         .setBody(compact(render(cmdJson)))
+
+       Http(cmdUrl OK as.String)
      }
 
      def lampValue(vibration: Boolean) =
@@ -94,20 +95,18 @@ object FanMonitor extends App {
           val initialized = if (!state.initialized) {
             println("!!! device initialized !!!")
             println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"type":"DELIGHT", "mac":"$mac"},"command":"init" }""")
-            //dhCommand(deviceID, "init", ("mac" -> mac) ~ ("type" -> "DELIGHT"))
+            dhCommand(deviceID, "init", ("mac" -> mac) ~ ("type" -> "DELIGHT"))
 
             true
-          } else
-            state.initialized
+          } else state.initialized
 
           val vibration = vals.exists(_ > threshold)
 
           if (state.vibration != vibration) {
             println("!!! vibration state changed !!!")
             println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"mac": "$mac", "uuid":"fff3", "value": "${lampValue(vibration)}"}, "command": "gatt/write" }""")
-            //dhCommand(deviceID, "gatt/write", ("mac" -> mac) ~ ("uuid" -> "fff3") ~ ("value" -> lampValue(vibration)))
+            dhCommand(deviceID, "gatt/write", ("mac" -> mac) ~ ("uuid" -> "fff3") ~ ("value" -> lampValue(vibration)))
           }
-
           (deviceID, mac) -> FanState(initialized, vibration)
       }
 
@@ -126,23 +125,20 @@ object FanMonitor extends App {
           val notification = ((jsonMsg \\ "parameters") \\ "jsonString").extract[String]
           val jsonParams = parse(notification)
 
-          (deviceID -> jsonParams.extract[NotificationParams])
+          deviceID -> jsonParams.extract[NotificationParams]
+      }
+      .filter {
+        case (deviceID, p) =>
+          p.uuid == "f000aa1104514000b000000000000000"
       }
       .map {
          case (deviceID, p) =>
-          val value = java.lang.Long.parseLong(p.value, 16)
-          val x = (value & 0xFF).toByte / 64.0
-          val y = ((value >> 8) & 0xFF).toByte / 64.0
-          val z = (value >> 16).toByte * -1.0 / 64.0
-
-          val dist = scala.math.sqrt(x*x + y*y + z*z)
-
-           (deviceID, p.mac) -> dist
+           (deviceID, p.mac) -> p.value.toDouble
       }
       .groupByKey()
       .map {
         case (addr, v) =>
-           addr -> breeze.stats.meanAndVariance(v.toArray).variance
+           addr -> breeze.stats.mean(v.toArray)
       }
       .updateStateByKey(updateFanStateIter, new HashPartitioner(ssc.sparkContext.defaultParallelism), true)
       .print()
