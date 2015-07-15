@@ -65,7 +65,7 @@ object FanMonitor extends App {
        "deviceGuid":"e50d6085-2aba-48e9-b1c3-73c673e414be",
        "timestamp":"2015-05-21T15:10:15.050884",
        "parameters":
-           {"jsonString":"{\"mac\":\"bc6a29abd973\",\"uuid\":\"f000aa1104514000b000000000000000\",\"value\":\"0.00005292811793254699\"}"}}
+           {"jsonString":"{\"mac\":\"d05fb831379f\",\"uuid\":\"fff3\",\"value\":\"0.00005292811793254699\"}"}}
      */
 
     /*
@@ -77,8 +77,8 @@ object FanMonitor extends App {
      * update led:
      * curl "http://52.0.200.198:8080/dh/rest/device/56a17de5-3dfd-4115-970a-f5570b30d85f/command" -H "Authorization: Bearer 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=" -H "Content-Type: application/json"  --data-binary "{""timestamp"":1431098595709,""parameters"":{""mac"":""f4044c0c58a3"",""uuid"":""fff3"",""value"":""0f0d0300ff00006400000000000067ffff""},""command"":""gatt/write""}"
      * lamp values:
-     * RED 0f0d0300ff00006400000000000067ffff
-     * GREEN 0f0d030000ff006400000000000067ffff
+     * ON 0f0d0300ffffffc800c800c8000059ffff
+     * OFF 0f0d0300ffffff0000c800c8000091ffff
      */
 
      def dhCommand(deviceID: String, command: String, params: JsonAST.JObject) = {
