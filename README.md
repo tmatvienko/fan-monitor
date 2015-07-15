@@ -3,6 +3,19 @@ Fan Monitor Demo
 
 Spark Streaming Job for devicehive vibrating fan demo
 
+To Configure
+--------
+
+You will need to update AppProperties object in FanMonitor.scala
+
+* authToken - authentication token for Devicehive RESTful API
+* mac - mac address of LED lamp (or anu other triggering device)
+* uuid - it's uuid
+* valueOn - notification value to indicate, that vibration is out of balance
+* valueOff - notification value to indicate, that stabilisation occurred
+* notificationNameToListen - name of notifications that contains vibration value in the parameters
+* notificationUuidToListen - their uuid
+
 To Build
 --------
 

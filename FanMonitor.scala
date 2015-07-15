@@ -17,13 +17,25 @@ case class NotificationParams(mac: String, uuid: String, value: String)
 
 case class FanState(initialized: Boolean, vibration: Boolean)
 
+object AppProperties {
+  val authToken = "Bearer 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
+
+  val mac = "d05fb831379f"
+  val uuid = "fff3"
+  val valueOn = "0f0d0300ffffffc800c800c8000059ffff"
+  val valueOff = "0f0d0300ffffff0000c800c8000091ffff"
+
+  val notificationNameToListen = "NotificationReceived"
+  val notificationUuidToListen = "f000aa1104514000b000000000000000"
+}
+
 object FanMonitor extends App {
 
     implicit val formats = DefaultFormats
 
-    if (args.length < 4) {
+    if (args.length < 3) {
       System.err.println(s"""
-        |Usage: FanMonitor <brokers> <seconds> <url> <threshold> <characteristic>
+        |Usage: FanMonitor <zookeeper> <seconds> <url> <threshold> <characteristic>
         |  <zookeeper> zookeeper quorum (list of one or more Kafka zookeper instances
         |  <seconds> monitoring "window" length in seconds
         |  <url> service URL to track monitor state changes; monitor will send POST to this address with state parameter set to 1 (vibration) or 0 (no vibration)
@@ -39,7 +51,6 @@ object FanMonitor extends App {
     val dhRest = args(2)
     val threshold = Try(args(3).toDouble).getOrElse(0.2D)
 
-    val authToken = "Bearer 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
 
     val sc = new SparkConf().setAppName("FanMonitor")
     val ssc =  new StreamingContext(sc, Seconds(windowSize))
@@ -75,27 +86,24 @@ object FanMonitor extends App {
 
        val cmdUrl = url(s"$dhRest/device/$deviceID/command").POST
          .setContentType("application/json", "UTF-8")
-         .setHeader("Authorization", authToken)
+         .setHeader("Authorization", AppProperties.authToken)
          .setBody(compact(render(cmdJson)))
 
        Http(cmdUrl OK as.String)
      }
 
      def lampValue(vibration: Boolean) =
-       if (vibration)
-         "0f0d0300ff00006400000000000067ffff"
-       else
-         "0f0d030000ff006400000000000067ffff"
+       if (vibration) AppProperties.valueOn else AppProperties.valueOff
 
-  val updateFanStateIter = (iter: Iterator[((String, String), Seq[Double], Option[FanState])]) =>
+  val updateFanStateIter = (iter: Iterator[(String, Seq[Double], Option[FanState])]) =>
       iter.map {
-        case ((deviceID, mac), vals, oldState) =>
+        case (deviceID, vals, oldState) =>
           val state: FanState = oldState.getOrElse(FanState(false, false))
 
           val initialized = if (!state.initialized) {
             println("!!! device initialized !!!")
-            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"type":"DELIGHT", "mac":"$mac"},"command":"init" }""")
-            dhCommand(deviceID, "init", ("mac" -> mac) ~ ("type" -> "DELIGHT"))
+            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"type":"DELIGHT", "mac":"$AppProperties.mac"},"command":"init" }""")
+            dhCommand(deviceID, "init", ("mac" -> AppProperties.mac) ~ ("type" -> "DELIGHT"))
 
             true
           } else state.initialized
@@ -104,18 +112,17 @@ object FanMonitor extends App {
 
           if (state.vibration != vibration) {
             println("!!! vibration state changed !!!")
-            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"mac": "$mac", "uuid":"fff3", "value": "${lampValue(vibration)}"}, "command": "gatt/write" }""")
-            dhCommand(deviceID, "gatt/write", ("mac" -> mac) ~ ("uuid" -> "fff3") ~ ("value" -> lampValue(vibration)))
+            println(s"""DH: $dhRest/device/$deviceID/command, { "timestamp": 1431098595709, "parameters":{"mac": "$AppProperties.mac", "uuid":"$AppProperties.uuid", "value": "${lampValue(vibration)}"}, "command": "gatt/write" }""")
+            dhCommand(deviceID, "gatt/write", ("mac" -> AppProperties.mac) ~ ("uuid" -> AppProperties.uuid) ~ ("value" -> lampValue(vibration)))
           }
-          (deviceID, mac) -> FanState(initialized, vibration)
+          deviceID -> FanState(initialized, vibration)
       }
 
     val measurements = messages
       .filter {
         msg =>
           val jsonMsg = parse(msg._2)
-
-          (jsonMsg \\ "notification").extract[String] == "NotificationReceived"
+          (jsonMsg \\ "notification").extract[String] == AppProperties.notificationNameToListen
       }
       .map {
         msg =>
@@ -129,11 +136,11 @@ object FanMonitor extends App {
       }
       .filter {
         case (deviceID, p) =>
-          p.uuid == "f000aa1104514000b000000000000000"
+          p.uuid == AppProperties.notificationUuidToListen
       }
       .map {
          case (deviceID, p) =>
-           (deviceID, p.mac) -> p.value.toDouble
+           deviceID -> p.value.toDouble
       }
       .groupByKey()
       .map {
