@@ -4,8 +4,11 @@ import org.apache.spark.streaming.kafka._
 import com.lambdaworks.jacks.JacksMapper
 
 val ssc = new StreamingContext(sc, Seconds(2))
+val zkUrl = "52.0.124.231:2181"
+val notificationName = "NotificationReceived"
+val uuid = "f000aa1104514000b000000000000000"
 
-val messages = KafkaUtils.createStream(ssc, "52.0.124.231:2181", "my-consumer-group", Map("device_notification" -> 1))
+val messages = KafkaUtils.createStream(ssc, zkUrl, "my-consumer-group", Map("device_notification" -> 1))
 val msgs = messages.window(Seconds(30))
 
 case class ParsedNotification(deviceGuid: String, notification: String, timestamp: String, parameters: String)
@@ -20,11 +23,11 @@ msgs.map(
       notificationMap.get("timestamp").get.asInstanceOf[String],
       notificationMap.get("parameters").get.asInstanceOf[Map[String, String]].getOrElse("jsonString", "{}"))
   ).filter(
-    parsed => parsed.notification == "NotificationReceived"
+    parsed => parsed.notification == notificationName
   ).map(
     nmap => (nmap.deviceGuid, nmap.timestamp, JacksMapper.readValue[Map[String, Any]](nmap.parameters))
   ).filter(
-    nmap => nmap._3.get("uuid").get.asInstanceOf[String] == "f000aa1104514000b000000000000000"
+    nmap => nmap._3.get("uuid").get.asInstanceOf[String] == uuid
   ).map(
     x => Notification(x._1, x._2.substring(11,19),
       x._3.get("mac").get.asInstanceOf[String],
